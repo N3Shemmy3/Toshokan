@@ -7,18 +7,18 @@ useSeoMeta({
 });
 </script>
 <template>
-  <div class="flex min-h-screen">
+  <div class="flex flex-col min-h-screen">
     <Topbar />
-    <main
-      class="w-full lg:max-w-4xl mx-auto pt-16 px-4 border-x border-colorText-light/10 dark:border-colorText-dark/10"
-    >
+    <main class="w-full lg:max-w-4xl mx-auto pt-16 px-4">
       <NuxtPage />
     </main>
+    <Footer />
   </div>
 </template>
 <style>
 body {
   font-family: "Poppins", "sans-serif";
+  overflow-x: hidden;
   @apply bg-colorBackground-light dark:bg-colorBackground-dark;
   @apply text-colorText-light dark:text-colorText-dark;
 }

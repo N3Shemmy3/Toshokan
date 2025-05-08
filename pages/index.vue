@@ -1,6 +1,9 @@
 <template>
-  <div class="flex flex-col min-h-full pt-10 md:pt-20">
-    <div class="flex items-center flex-col text-center">
+  <div class="flex flex-col gap-8">
+    <section
+      id="hero"
+      class="flex-col min-h-screen 2xl:min-h-fit pt-10 md:pt-20 flex items-center text-center"
+    >
       <small
         class="flex items-center w-fit p-2 text-xs space-x-1 animate-bounce rounded-full bg-colorSurface-light/40 dark:bg-colorSurface-dark/40 border border-colorText-light/10 dark:border-colorText-dark/10"
       >
@@ -17,13 +20,16 @@
         education
       </p>
       <div class="flex items-center space-x-4 mt-8">
-        <ButtonFilled>
-          <p>Search</p>
-        </ButtonFilled>
+        <NuxtLink to="/books">
+          <ButtonFilled>
+            <p>Get started</p>
+          </ButtonFilled>
+        </NuxtLink>
         <ButtonOutlined>
-          <p>Write</p>
+          <p>Start writing</p>
         </ButtonOutlined>
       </div>
-    </div>
+      <MarqueeText class="mt-16" />
+    </section>
   </div>
 </template>
