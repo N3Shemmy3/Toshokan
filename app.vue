@@ -1,3 +1,11 @@
+<script setup>
+useSeoMeta({
+  ogTitle: "Toshokan",
+  title: "Toshokan",
+  ogdescription: "Share your books freely with the wolrd",
+  description: "Share your books freely with the wolrd",
+});
+</script>
 <template>
   <div class="flex min-h-screen">
     <Topbar />
