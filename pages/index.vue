@@ -20,14 +20,17 @@
         education
       </p>
       <div class="flex items-center space-x-4 mt-8">
-        <NuxtLink to="/books">
+        <NuxtLink to="/book">
           <ButtonFilled>
             <p>Get started</p>
           </ButtonFilled>
         </NuxtLink>
-        <ButtonOutlined>
-          <p>Start writing</p>
-        </ButtonOutlined>
+
+        <NuxtLink to="/book/write">
+          <ButtonOutlined>
+            <p>Start writing</p>
+          </ButtonOutlined>
+        </NuxtLink>
       </div>
       <MarqueeText class="mt-16" />
     </section>
