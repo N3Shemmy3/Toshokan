@@ -11,15 +11,6 @@ export default defineNuxtConfig({
   ],
   icon: { size: "24px" },
   app: {
-    head: {
-      link: [
-        {
-          rel: "icon",
-          type: "image/svg+xml",
-          href: "/favicon.svg",
-        },
-      ],
-    },
     pageTransition: {
       name: "fade",
       mode: "out-in",

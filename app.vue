@@ -9,7 +9,7 @@ useSeoMeta({
 <template>
   <div class="flex flex-col">
     <Topbar />
-    <main class="w-full min-h-screen h-full lg:max-w-4xl mx-auto pt-16 px-4">
+    <main class="w-full min-h-screen h-full lg:max-w-4xl mx-auto py-16 px-4">
       <NuxtPage />
     </main>
     <Footer />
@@ -25,5 +25,17 @@ body {
 
 .font-cursive {
   font-family: "Edu QLD Beginner";
+}
+
+.grid-responsive {
+  grid-area: span;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+}
+
+@media (min-width: 768px) {
+  .grid-responsive {
+    grid-area: span;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
 }
 </style>

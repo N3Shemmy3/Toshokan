@@ -1,8 +1,12 @@
+<script setup lang="ts">
+import { NuxtLink } from "#components";
+</script>
+
 <template>
   <div class="flex flex-col gap-8">
     <section
       id="hero"
-      class="flex-col min-h-screen 2xl:min-h-fit pt-10 md:pt-20 flex items-center text-center"
+      class="flex-col md:min-h-screen 2xl:min-h-fit pt-10 md:pt-20 flex items-center text-center"
     >
       <small
         class="flex items-center w-fit p-2 text-xs space-x-1 animate-bounce rounded-full bg-colorSurface-light/40 dark:bg-colorSurface-dark/40 border border-colorText-light/10 dark:border-colorText-dark/10"
@@ -20,19 +24,31 @@
         education
       </p>
       <div class="flex items-center space-x-4 mt-8">
-        <NuxtLink to="/book">
+        <NuxtLink to="/books">
           <ButtonFilled>
             <p>Get started</p>
           </ButtonFilled>
         </NuxtLink>
 
-        <NuxtLink to="/book/write">
+        <NuxtLink to="/write">
           <ButtonOutlined>
             <p>Start writing</p>
           </ButtonOutlined>
         </NuxtLink>
       </div>
       <MarqueeText class="mt-16" />
+    </section>
+    <section class="flex flex-col gap-8 md:gap-16 py-14">
+      <div class="flex items-center justify-between">
+        <h4 class="text-xl md:text-3xl">Our Latest Books</h4>
+        <NuxtLink to="/books">
+          <ButtonFilled>See all</ButtonFilled>
+        </NuxtLink>
+      </div>
+
+      <ul class="grid gap-4 md:gap-6 grid-responsive items-center list-none">
+        <Book v-for="n in 5" />
+      </ul>
     </section>
   </div>
 </template>
