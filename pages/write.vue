@@ -1,31 +1,30 @@
+<script setup>
+import { QuillEditor } from "@vueup/vue-quill";
+import "@vueup/vue-quill/dist/vue-quill.snow.css";
+</script>
 <template>
   <article class="flex max-w-full flex-col px-4 py-2 md:p-8 gap-8">
-    <div class="flex flex-col gap-8">
-      <div class="mt-16">
-        <IconButton icon="ic:outline-arrow-back" @click="$router.back" />
-        <h4 class="text-xl md:text-3xl mt-4">Draft</h4>
-      </div>
-    </div>
-
-    <div class="max-w-full flex flex-col gap-2">
-      <h3 class="select-none text-xl">Title</h3>
-
-      <h3 contenteditable="true" id="title" />
-    </div>
-    <div class="flex flex-col gap-2">
-      <p class="select-none text-base">Content</p>
-      <p id="content" contenteditable="true" class="" />
+    <input
+      type="text"
+      placeholder="My awesome title"
+      id="title"
+      class="bg-transparent m-0 md:m-0 rounded text-base px-4 py-2 border border-colorText-light/30 dark:border-colorText-dark/30 outline-none"
+    />
+    <div class="">
+      <ClientOnly>
+        <QuillEditor theme="snow" toolbar="minimal" placeholder="Content...." />
+      </ClientOnly>
     </div>
   </article>
 </template>
-<style scoped>
-.s-border {
-  @apply max-w-full  ps-2 ms-2 outline-none border-s border-colorText-light/30 dark:border-colorText-dark/30;
+<style>
+.border-color {
+  @apply max-w-full ps-2 outline-none border-colorText-light/30 dark:border-colorText-dark/30;
 }
-#title {
-  @apply s-border text-xl md:text-3xl;
+.ql-toolbar {
+  @apply rounded-t border  border-color;
 }
-#content {
-  @apply s-border text-base md:text-xl;
+.ql-container {
+  @apply rounded-b border-color;
 }
 </style>

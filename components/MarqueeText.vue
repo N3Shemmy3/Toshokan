@@ -1,5 +1,7 @@
 <template>
-  <div class="w-full max-w-full flex flex-row gap-8 relative overflow-hidden">
+  <div
+    class="w-full max-w-full flex flex-row gap-8 relative overflow-hidden rounded-full duration-0 transition-colors"
+  >
     <div
       class="flex flex-row gap-8 marquee italic font-cursive"
       style="animation: marquee 50s linear infinite"

@@ -1,6 +1,6 @@
 <template>
   <li
-    class="rounded-xl cursor-pointer overflow-clip transition-all duration-300 hover:bg-colorSurface-light dark:hover:bg-colorSurface-dark"
+    class="rounded-xl cursor-pointer overflow-clip transition-all duration-300 hover:opacity-55"
   >
     <img
       class="rounded-xl"
