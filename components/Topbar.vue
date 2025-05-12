@@ -186,9 +186,9 @@ onMounted(() => {
         class="outer fixed left-0 top-0 right-0 bottom-0 h-screen z-50 flex justify-center px-4 mx-auto pt-[10rem] bg-black/75"
       >
         <div
-          class="inner w-full rounded border divide-y border-colorText-light/10 dark:border-colorText-dark/10 divide-colorText-light/10 dark:divide-colorText-dark/10 h-fit md:max-w-[450px] mx-auto bg-colorBackground-light dark:bg-colorBackground-dark"
+          class="inner w-full rounded border border-colorText-light/10 dark:border-colorText-dark/10 divide-colorText-light/10 dark:divide-colorText-dark/10 h-fit max-w-[450px] mx-auto bg-colorBackground-light dark:bg-colorBackground-dark"
         >
-          <div class="flex h-fit items-center gap-2 p-3">
+          <div class="flex h-fit items-center gap-2 p-3 border-b">
             <Icon name="ic:outline-search" class="opacity-70" />
             <input
               type="text"
