@@ -22,14 +22,15 @@ async function submitLogin() {
       localStorage.setItem(
         "user",
         JSON.stringify({
+          id: result.id,
           email: result.email,
-          avatar: result.avatar || null, // Save avatar if available
+          avatar: result.avatar || null,
         })
       );
 
       alert("Login successful!");
       // Redirect to a dashboard or another page
-      window.location.href = "/dashboard"; // Example redirect
+      window.location.href = "/books"; // Example redirect
     } else {
       alert(result.message || "Login failed.");
     }
@@ -42,7 +43,7 @@ async function submitLogin() {
 
 <template>
   <div
-    class="flex flex-col gap-8 md:max-w-[400px] mx-auto rounded-md border md:p-4"
+    class="flex flex-col gap-8 md:max-w-[400px] mx-auto rounded-md md:border md:p-4"
   >
     <div class="flex flex-col gap-1 text-center">
       <h3 class="md:mt-8 scroll-m-20 text-2xl font-semibold tracking-tight">
@@ -76,9 +77,15 @@ async function submitLogin() {
           required
         />
       </div>
-      <ButtonFilled type="submit" class="mt-8 rounded"
-        ><p class="text-center mx-auto">Sign In</p></ButtonFilled
-      >
+      <ButtonFilled type="submit" class="mt-8 rounded">
+        <p class="text-center mx-auto">Sign In</p>
+      </ButtonFilled>
+      <p class="text-center mx-auto">or</p>
+      <NuxtLink to="/signup">
+        <ButtonOutlined class="w-full">
+          <p class="text-center mx-auto">Sign up</p>
+        </ButtonOutlined>
+      </NuxtLink>
     </form>
   </div>
 </template>

@@ -1,7 +1,3 @@
-<script setup lang="ts">
-import { NuxtLink } from "#components";
-</script>
-
 <template>
   <div class="flex flex-col gap-8">
     <section
@@ -37,18 +33,6 @@ import { NuxtLink } from "#components";
         </NuxtLink>
       </div>
       <MarqueeText class="mt-16" />
-    </section>
-    <section class="flex flex-col gap-8 md:gap-16 py-14">
-      <div class="flex items-center justify-between">
-        <h4 class="text-xl md:text-3xl">Our Latest Books</h4>
-        <NuxtLink to="/books">
-          <ButtonFilled>See all</ButtonFilled>
-        </NuxtLink>
-      </div>
-
-      <ul class="grid gap-4 md:gap-6 grid-responsive items-center list-none">
-        <Book v-for="n in 5" />
-      </ul>
     </section>
   </div>
 </template>
