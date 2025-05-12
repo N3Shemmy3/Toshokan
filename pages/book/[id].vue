@@ -22,56 +22,7 @@ const router = useRouter();
 
 onMounted(async () => {
   const bookId = route.params.id;
-
-  const storedUser = localStorage.getItem("user");
-  if (storedUser) {
-    try {
-      const localUser = JSON.parse(storedUser);
-      if (localUser && typeof localUser.id !== "undefined") {
-        isLoadingUser.value = true;
-        const userRes = await fetch(
-          `${BASEURL}/get_user_details.php?id=${localUser.id}`
-        );
-        if (!userRes.ok) {
-          const errorBody = await userRes.text();
-          let errorMessage = `HTTP error fetching user: ${userRes.status}`;
-          try {
-            const errorJson = JSON.parse(errorBody);
-            errorMessage = errorJson.error || errorMessage;
-          } catch (e) {
-            errorMessage = errorBody || errorMessage;
-          }
-          userFetchError.value = errorMessage;
-          console.error("Fetch User API Error:", userRes.status, errorBody);
-          user.value = null;
-          localStorage.removeItem("user");
-        } else {
-          const userData = await userRes.json();
-          if (userData.success && userData.user) {
-            user.value = userData.user;
-            localStorage.setItem("user", JSON.stringify(user.value));
-            userFetchError.value = null;
-          } else {
-            userFetchError.value = userData.error || "Failed to get user data.";
-            console.error("Fetch User API reported error:", userData);
-            user.value = null;
-            localStorage.removeItem("user");
-          }
-        }
-      } else {
-        console.warn("Invalid user data in localStorage.");
-        user.value = null;
-        localStorage.removeItem("user");
-      }
-    } catch (e) {
-      console.error("Failed to parse user data from localStorage:", e);
-      user.value = null;
-      userFetchError.value = "Failed to process user data.";
-      localStorage.removeItem("user");
-    } finally {
-      isLoadingUser.value = false;
-    }
-  }
+  user.value = JSON.parse(localStorage.getItem("user"));
 
   if (!bookId) {
     bookFetchError.value = "Book ID is missing from the route.";
@@ -146,7 +97,13 @@ const authorAvatarSrc = computed(() => {
 
 const canEditOrDelete = computed(() => {
   if (!user.value || !book.value) return false;
-  return user.value.id === book.value.author || user.value.role === "admin";
+  var canEditOrDelete =
+    user.value.id == book.value.author || user.value.role === "admin";
+  console.log(user.value.id);
+  console.log(book.value.author);
+  console.log(book.value.role);
+  console.log(canEditOrDelete);
+  return canEditOrDelete;
 });
 
 const editBook = () => {
@@ -271,7 +228,7 @@ const deleteBook = async () => {
           <ButtonFilled
             @click="deleteBook"
             :disabled="isDeleting"
-            class="w-fit h-fit text-sm bg-red-500 hover:bg-red-600 dark:bg-red-700 dark:hover:bg-red-800 text-white"
+            class="w-fit h-fit text-sm bg-red-500 hover:bg-red-600 dark:bg-red-700 dark:hover:bg-red-800 text-white dark:text-white"
           >
             {{ isDeleting ? "Deleting..." : "Delete" }}
           </ButtonFilled>
