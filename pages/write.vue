@@ -2,7 +2,7 @@
 import { QuillEditor } from "@vueup/vue-quill";
 import "@vueup/vue-quill/dist/vue-quill.snow.css";
 import "@vueup/vue-quill/dist/vue-quill.bubble.css"; // Assuming you might use bubble theme later
-import { ref, onMounted, computed } from "vue"; // Ensure computed is imported
+import { ref, onMounted, computed, watch } from "vue"; // Ensure watch is imported
 import { useRoute, useRouter } from "vue-router"; // Import useRoute and useRouter
 
 // Assuming BASEURL is defined somewhere accessible
@@ -118,11 +118,9 @@ onMounted(async () => {
       } else {
         // Populate form fields with fetched data
         title.value = data.book.title || "";
-        content.value = data.book.content || ""; // Quill will load this HTML
+        content.value = data.book.content || ""; // Quill will load this HTML via v-model
         cover.value = data.book.cover || null; // Load base64 cover for preview
         originalCover.value = data.book.cover || null; // Store original cover
-        // Set editor content after it's mounted (using a watcher or nextTick if needed)
-        // For now, v-model should handle initial content setting if editor is ready
         fetchBookError.value = null; // Clear error
       }
     } catch (error) {
@@ -152,7 +150,8 @@ const handleFile = (event) => {
   const file = event.target.files[0];
   // If no file is selected, reset preview to original (if editing) or null (if publishing)
   if (!file) {
-    cover.value = isEditing.value ? originalCover.value : null; // Reset preview
+    // When cancelling file selection, revert to the original cover if editing, otherwise null
+    cover.value = isEditing.value ? originalCover.value : null;
     message.value = { type: "", text: "" }; // Clear previous file errors
     // Also clear the file input element's value
     if (coverInput.value) {
@@ -174,7 +173,7 @@ const handleFile = (event) => {
         .join(", ")} images are allowed.`,
     };
     event.target.value = ""; // Clear the file input
-    cover.value = isEditing.value ? originalCover.value : null; // Reset preview
+    cover.value = isEditing.value ? originalCover.value : null; // Reset preview on error
     return;
   }
 
@@ -186,7 +185,7 @@ const handleFile = (event) => {
       )} MB) exceeds the maximum limit of ${maxSizeMB}MB.`,
     };
     event.target.value = ""; // Clear the file input
-    cover.value = isEditing.value ? originalCover.value : null; // Reset preview
+    cover.value = isEditing.value ? originalCover.value : null; // Reset preview on error
     return;
   }
   // --- End File Validation ---
@@ -200,7 +199,7 @@ const handleFile = (event) => {
   reader.onerror = () => {
     message.value = { type: "error", text: "Failed to read file." };
     event.target.value = ""; // Clear the file input on error
-    cover.value = isEditing.value ? originalCover.value : null; // Reset preview
+    cover.value = isEditing.value ? originalCover.value : null; // Reset preview on error
   };
   reader.readAsDataURL(file); // Read the file as a base64 Data URL
 };
@@ -208,7 +207,7 @@ const handleFile = (event) => {
 // Handle the form submission (Publish or Update)
 const submitBook = async () => {
   // Renamed from publish
-  // Prevent submission if already loading or user is not available
+  // Prevent submission if already loading, fetching book for edit, or user is not available
   if (
     isLoading.value ||
     isFetchingBook.value ||
@@ -222,6 +221,11 @@ const submitBook = async () => {
       };
       // Optionally redirect to login
       // useRouter().push("/signin");
+    } else if (isFetchingBook.value) {
+      message.value = {
+        type: "info",
+        text: "Please wait while book data is loading.",
+      };
     }
     return;
   }
@@ -259,6 +263,7 @@ const submitBook = async () => {
 
   // --- Handle Cover Image for Submission (Publish or Update) ---
   const coverChanged = cover.value !== originalCover.value; // Check if cover was changed
+
   if (isEditing.value && bookIdToEdit.value) {
     // --- Update Mode ---
     formData.append("book_id", bookIdToEdit.value); // Include book ID for update
@@ -388,15 +393,18 @@ const submitBook = async () => {
 // --- Watcher for editor ref ---
 // Need to watch the editor ref to access the Quill instance once it's mounted
 // This is useful if you need to programmatically set content after fetching for editing
-watch(editor, (newEditor) => {
-  if (newEditor && isEditing.value && bookIdToEdit.value && content.value) {
-    // If in edit mode and content is already loaded, set it in the editor
-    // Use nextTick to ensure DOM is updated after v-model might have tried
-    // nextTick(() => {
-    // newEditor.setHTML(content.value); // v-model should handle this usually
-    // });
-  }
-});
+// v-model should handle initial content setting, but this can be a fallback or for other logic
+watch(
+  editor,
+  (newEditor) => {
+    if (newEditor && isEditing.value && content.value) {
+      // If in edit mode and content is loaded, ensure it's set in the editor
+      // This might be redundant with v-model but can help in some cases
+      // newEditor.setHTML(content.value);
+    }
+  },
+  { immediate: true }
+); // Watch immediately on mount
 </script>
 
 <template>
@@ -472,7 +480,6 @@ watch(editor, (newEditor) => {
 
             <ButtonFilled
               v-if="isEditing && cover && cover !== null"
-              v-show="false"
               @click="
                 cover = null;
                 message = {
@@ -531,14 +538,13 @@ watch(editor, (newEditor) => {
               toolbar="minimal"
               placeholder="Write your book content here..."
               :disabled="isLoading"
-              style="height: 300px"
             />
           </ClientOnly>
         </div>
 
         <div>
           <ButtonFilled type="submit" class="w-full" :disabled="isLoading">
-            {{ submitButtonText }}
+            <p class="text-center">{{ submitButtonText }}</p>
           </ButtonFilled>
         </div>
       </form>
