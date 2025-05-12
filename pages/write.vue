@@ -472,6 +472,7 @@ watch(editor, (newEditor) => {
 
             <ButtonFilled
               v-if="isEditing && cover && cover !== null"
+              v-show="false"
               @click="
                 cover = null;
                 message = {
@@ -480,7 +481,7 @@ watch(editor, (newEditor) => {
                 };
               "
               type="button"
-              class="bg-red-500 hover:bg-red-600 dark:bg-red-700 dark:hover:bg-red-800 text-white"
+              class="bg-red-500 hover:bg-red-600 dark:bg-red-700 dark:hover:bg-red-800 text-white dark:text-white"
               :disabled="isLoading"
             >
               Remove cover
