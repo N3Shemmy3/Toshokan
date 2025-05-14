@@ -1,50 +1,179 @@
 <script setup>
-import { ref, onMounted, computed } from "vue";
-import { useRouter, useRoute } from "vue-router"; // Ensure useRoute is imported
-// Assume BASEURL is defined somewhere accessible
-// Assume ButtonFilled component is imported
-// Assume Progressbar component is imported (for initial loading)
-// Assume Icon component is imported (for header icons)
+import { ref, onMounted, computed, watch } from "vue"; // Import necessary Vue functions
+import { useRouter } from "vue-router"; // Import useRouter for navigation
+
+// Assuming BASEURL is defined somewhere accessible (e.g., in a config file or environment variable)
+// Assuming Progressbar component is imported
+// Assuming ButtonFilled component is imported
+// Assuming IconButton component is imported (already used in template)
+
+// Define Nuxt page metadata (assuming Nuxt 3 and auth middleware)
+// This middleware should check if the user is logged in before allowing access
+definePageMeta({ middleware: ["auth"] });
 
 // Reactive state for user data and form inputs
-const user = ref(null); // Stores the user object from local storage
-const name = ref(""); // Bound to the name input
-const email = ref(""); // Bound to the email input
-const avatar = ref("/avataaars.svg"); // Stores the base64 Data URL or default path for preview
-const avatarInput = ref(null); // Template ref for the hidden file input element
-const originalAvatar = ref(null); // To track the original avatar value for change detection
+const user = ref(null); // Stores the currently displayed user object (from server or localStorage)
+const name = ref(""); // Reactive state for the name input
+const email = ref(""); // Reactive state for the email input
+const avatarFile = ref(null); // Stores the selected File object for the new avatar
+const avatarPreview = ref(null); // Stores the base64 Data URL for the avatar preview (selected file or fetched avatar)
+const originalAvatar = ref(null); // Stores the original avatar Data URL fetched from the server or loaded from localStorage
 
-// UI State
-const isLoading = ref(true); // Initial loading state while fetching from local storage
-const isEditing = ref(false); // State to toggle between view and edit mode
-const isUpdating = ref(false); // Loading state for the update button
-const message = ref({ type: "", text: "" }); // For displaying success/error/info messages { type: 'success'|'error'|'info', text: '...' }
+// State for user fetching
+const isFetchingUser = ref(true); // Loading state when initially fetching user data
+const userFetchError = ref(null); // Error state related to fetching user data from the server
 
-// Access the router and route instances using composition API
+// UI State for profile update
+const isLoading = ref(false); // Loading state for the update profile button
+const updateMessage = ref({ type: "", text: "" }); // For displaying update feedback messages { type: 'success'|'error'|'info', text: '...' }
+
+// Template ref for the hidden file input element
+const avatarInput = ref(null);
+
+// Access the router instance
 const router = useRouter();
-const route = useRoute(); // Get the reactive route object
 
-// --- Validation Helper ---
-// Basic email validation regex
-const isValidEmail = (email) => {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-};
+// --- Computed Properties ---
 
-// --- File Handling ---
-// Trigger click on the hidden file input element using its template ref
+// Determine the text for the update button
+const updateButtonText = computed(() => {
+  return isLoading.value ? "Updating..." : "Update Profile";
+});
+
+// --- Lifecycle Hook ---
+// Fetch the logged-in user's details when the component is mounted
+onMounted(async () => {
+  // Get user data from local storage
+  const storedUser = localStorage.getItem("user");
+  let localUserData = null; // Variable to hold parsed data from localStorage
+
+  if (storedUser) {
+    try {
+      localUserData = JSON.parse(storedUser);
+      // Basic check if local data is valid and has an ID
+      if (!localUserData || typeof localUserData.id === "undefined") {
+        console.warn("Invalid user data found in localStorage.");
+        localUserData = null; // Treat as invalid
+        localStorage.removeItem("user"); // Clear invalid data
+      }
+    } catch (e) {
+      console.error("Failed to parse user data from localStorage:", e);
+      localUserData = null; // Treat as invalid
+      localStorage.removeItem("user"); // Clear invalid data
+    }
+  }
+
+  // If valid user data was found in localStorage, display it initially
+  if (localUserData) {
+    user.value = localUserData;
+    // Populate form fields with potentially stale local data
+    name.value = user.value.name || "";
+    email.value = user.value.email || "";
+    avatarPreview.value = user.value.avatar || null; // Set initial preview from local data
+    originalAvatar.value = user.value.avatar || null; // Store original from local data
+    isFetchingUser.value = true; // Still set fetching to true as we will try to get fresh data
+  } else {
+    // If no valid data in localStorage, fetching is required
+    isFetchingUser.value = true;
+  }
+
+  // --- Attempt to Fetch Latest User Details from Server ---
+  // Only attempt to fetch if we have a user ID (either from valid local data or if auth middleware provides one)
+  // Assuming auth middleware ensures user.value has an ID if logged in, or redirects otherwise.
+  // Or, if we got a valid ID from localStorage:
+  const userIdToFetch = localUserData
+    ? localUserData.id
+    : user.value
+    ? user.value.id
+    : null;
+
+  if (userIdToFetch !== null) {
+    try {
+      // Fetch user details from the dedicated endpoint using the ID
+      // Assume get_user_details.php returns { success: true, user: {...} }
+      const res = await fetch(
+        `${BASEURL}/get_user_details.php?id=${userIdToFetch}`
+      ); // Assume BASEURL is defined
+
+      if (!res.ok) {
+        const errorBody = await res.text();
+        let errorMessage = `HTTP error fetching latest profile data: ${res.status}`;
+        try {
+          const errorJson = JSON.parse(errorBody);
+          errorMessage = errorJson.error || errorMessage;
+        } catch (e) {
+          errorMessage = errorBody || errorMessage;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const data = await res.json();
+
+      // Assuming get_user_details.php returns { success: true, user: {...} }
+      if (data.success && data.user) {
+        user.value = data.user; // Update user ref with fresh server data
+        // Update form fields and previews with fresh data
+        name.value = user.value.name || "";
+        email.value = user.value.email || "";
+        avatarPreview.value = user.value.avatar || null;
+        originalAvatar.value = user.value.avatar || null;
+        localStorage.setItem("user", JSON.stringify(user.value)); // Update localStorage with fresh data
+        userFetchError.value = null; // Clear fetch error
+      } else {
+        // API reported an error (e.g., user not found on server)
+        userFetchError.value =
+          data.error || "Failed to get latest user data from server.";
+        console.error("Fetch User API reported error:", data);
+        // If the server says user is not found, clear local data and user ref
+        if (
+          data.error &&
+          (data.error.includes("User not found") ||
+            data.error.includes("Invalid user ID"))
+        ) {
+          user.value = null;
+          localStorage.removeItem("user");
+          // Optionally redirect to login if user is no longer valid on server
+          // router.push("/signin");
+        }
+        // Otherwise, keep the local data (if it existed) and just show the fetch error
+      }
+    } catch (error) {
+      // Handle network errors or issues during fetch
+      userFetchError.value =
+        error.message || "Failed to fetch latest user details.";
+      console.error("Error fetching user:", error);
+      // If fetch fails, keep the local data (if it existed) and just show the fetch error
+    } finally {
+      isFetchingUser.value = false; // Fetching finished
+    }
+  } else {
+    // No user ID available to fetch
+    isFetchingUser.value = false;
+    if (!user.value) {
+      // If user is still null (no valid local data either)
+      userFetchError.value = "User not logged in. Please log in.";
+      // router.push("/signin"); // Redirect to login
+    }
+  }
+});
+
+// --- Methods ---
+
+// Trigger click on the hidden file input
 const pickAvatar = () => {
   if (avatarInput.value) {
     avatarInput.value.click();
   }
 };
 
-// Handle file selection and read as Base64 Data URL
+// Handle file selection and read as Base64
 const handleFile = (event) => {
   const file = event.target.files[0];
-  // If no file is selected, reset preview to original or default
+  // If no file is selected, revert preview to original avatar
   if (!file) {
-    avatar.value = originalAvatar.value || "/avataaars.svg"; // Reset preview to original or default
-    message.value = { type: "", text: "" }; // Clear previous file errors
+    avatarFile.value = null; // Clear the selected file
+    avatarPreview.value = originalAvatar.value; // Revert preview to original fetched/local avatar
+    updateMessage.value = { type: "", text: "" }; // Clear previous file errors
     // Also clear the file input element's value
     if (avatarInput.value) {
       avatarInput.value.value = null;
@@ -53,337 +182,307 @@ const handleFile = (event) => {
   }
 
   // --- File Validation ---
-  const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"]; // Allowed image types
-  const maxSizeMB = 2; // Maximum allowed file size in MB
-  const maxSizeBytes = maxSizeMB * 1024 * 1024; // Convert MB to bytes
+  const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"]; // Add more types if needed
+  const maxSizeMB = 2; // Maximum allowed file size in MB (avatars are usually smaller)
+  const maxSizeBytes = maxSizeMB * 1024 * 1024;
 
-  // Check file type
   if (!allowedTypes.includes(file.type)) {
-    message.value = {
+    updateMessage.value = {
       type: "error",
       text: `Invalid file type. Only ${allowedTypes
         .map((t) => t.split("/")[1].toUpperCase())
         .join(", ")} images are allowed.`,
     };
-    event.target.value = ""; // Clear the file input element's value
-    avatar.value = originalAvatar.value || "/avataaars.svg"; // Reset preview
+    event.target.value = ""; // Clear the file input
+    avatarFile.value = null; // Clear selected file
+    avatarPreview.value = originalAvatar.value; // Revert preview on error
     return;
   }
 
-  // Check file size
   if (file.size > maxSizeBytes) {
-    message.value = {
+    updateMessage.value = {
       type: "error",
       text: `File size (${(file.size / 1024 / 1024).toFixed(
         2
       )} MB) exceeds the maximum limit of ${maxSizeMB}MB.`,
     };
-    event.target.value = ""; // Clear the file input element's value
-    avatar.value = originalAvatar.value || "/avataaars.svg"; // Reset preview
+    event.target.value = ""; // Clear the file input
+    avatarFile.value = null; // Clear selected file
+    avatarPreview.value = originalAvatar.value; // Revert preview on error
     return;
   }
   // --- End File Validation ---
 
-  // Read the file as a Data URL (Base64)
+  avatarFile.value = file; // Store the selected file object
+
   const reader = new FileReader();
   reader.onload = () => {
-    // Store the base64 Data URL in the avatar ref for preview and sending
-    avatar.value = reader.result;
-    message.value = { type: "", text: "" }; // Clear previous file errors on successful read
+    // Store the base64 Data URL in avatarPreview ref
+    avatarPreview.value = reader.result;
+    updateMessage.value = { type: "", text: "" }; // Clear previous file errors on successful read
   };
   reader.onerror = () => {
-    // Handle errors during file reading
-    message.value = { type: "error", text: "Failed to read file." };
-    event.target.value = ""; // Clear the file input element's value on error
-    avatar.value = originalAvatar.value || "/avataaars.svg"; // Reset preview
+    updateMessage.value = { type: "error", text: "Failed to read file." };
+    event.target.value = ""; // Clear the file input on error
+    avatarFile.value = null; // Clear selected file
+    avatarPreview.value = originalAvatar.value; // Revert preview on error
   };
-  reader.readAsDataURL(file); // Start reading the file
+  reader.readAsDataURL(file); // Read the file as a base64 Data URL
 };
 
-// --- Profile Actions ---
-
-// Toggle between view and edit mode
-const toggleEditing = () => {
-  isEditing.value = !isEditing.value;
-  // If entering edit mode, populate form fields with current user data
-  if (isEditing.value && user.value) {
-    name.value = user.value.name || "";
-    email.value = user.value.email || "";
-    // avatar.value is already bound to the preview and updated by handleFile
-    // originalAvatar is set in resetForm
-  } else {
-    // If exiting edit mode (via Cancel or after Save), reset form fields to current user data
-    resetForm();
-    message.value = { type: "", text: "" }; // Clear messages on cancel
+// Remove the current avatar
+const removeAvatar = () => {
+  avatarFile.value = null; // Clear any pending file selection
+  avatarPreview.value = null; // Clear the preview
+  // The updateProfile function will handle sending the remove_avatar flag
+  updateMessage.value = {
+    type: "info",
+    text: "Avatar will be removed on save.",
+  };
+  // Also clear the file input element's value
+  if (avatarInput.value) {
+    avatarInput.value.value = null;
   }
 };
 
-// Reset form fields and avatar preview to current user data
-const resetForm = () => {
-  if (user.value) {
-    name.value = user.value.name || "";
-    email.value = user.value.email || "";
-    avatar.value = user.value.avatar || "/avataaars.svg"; // Set preview to current avatar or default
-    originalAvatar.value = user.value.avatar || "/avataaars.svg"; // Store the current avatar as original
-    // Clear the file input element's value so selecting the same file works again
-    if (avatarInput.value) {
-      avatarInput.value.value = null;
-    }
-  }
-};
-
-// Submit updated profile information
+// Handle the profile update action
 const updateProfile = async () => {
-  // Prevent submission if already updating
-  if (isUpdating.value) return;
-
-  // Clear previous messages
-  message.value = { type: "", text: "" };
-
-  // --- Frontend Form Validation ---
-  if (!name.value.trim()) {
-    message.value = { type: "error", text: "Name cannot be empty." };
-    return; // Stop submission if validation fails
-  }
-  if (!email.value.trim() || !isValidEmail(email.value.trim())) {
-    // Validate trimmed email
-    message.value = {
-      type: "error",
-      text: "Please enter a valid email address.",
-    };
-    return; // Stop submission if validation fails
-  }
-  // Add password change validation here if you add password update functionality
-  // if (password.value.length < 8) {
-  //    message.value = { type: "error", text: "Password must be at least 8 characters long." };
-  //    return;
-  // }
-  // --- End Frontend Form Validation ---
-
-  // Check if any changes were made
-  const nameChanged = name.value.trim() !== (user.value?.name || "");
-  const emailChanged = email.value.trim() !== (user.value?.email || "");
-  const avatarChanged = avatar.value !== originalAvatar.value;
-
-  if (!nameChanged && !emailChanged && !avatarChanged) {
-    message.value = { type: "info", text: "No changes to save." };
-    isEditing.value = false; // Exit editing if nothing changed
+  // Prevent submission if already loading, fetching user data, or user is not available
+  if (
+    isLoading.value ||
+    isFetchingUser.value ||
+    !user.value ||
+    typeof user.value.id === "undefined"
+  ) {
+    if (isFetchingUser.value) {
+      updateMessage.value = {
+        type: "info",
+        text: "Please wait while user data is loading.",
+      };
+    } else if (!user.value) {
+      updateMessage.value = {
+        type: "error",
+        text: "User not logged in or user data is invalid.",
+      };
+      // Optionally redirect to login
+      // router.push("/signin");
+    }
     return;
   }
 
-  isUpdating.value = true; // Set loading state to true
+  // Clear previous update messages
+  updateMessage.value = { type: "", text: "" };
 
-  // Prepare form data for the POST request
-  const formData = new FormData();
-  // CRITICAL: Send the user ID so the backend knows which user to update.
-  // In a real app, this ID should ideally be verified against the authenticated user's session/token on the backend.
-  if (user.value?.id) {
-    formData.append("user_id", user.value.id);
-  } else {
-    message.value = {
-      type: "error",
-      text: "User ID is missing. Cannot update.",
-    };
-    isUpdating.value = false;
-    console.error("User ID missing from user object.");
-    return; // Stop if user ID is not available
+  // Basic validation for name and email
+  if (!name.value.trim()) {
+    updateMessage.value = { type: "error", text: "Name is required." };
+    return;
   }
+  if (!email.value.trim()) {
+    updateMessage.value = { type: "error", text: "Email is required." };
+    return;
+  }
+  // Optional: Add more email format validation here
 
-  // Append name and email (always send these as they are required fields)
-  formData.append("name", name.value.trim());
-  formData.append("email", email.value.trim());
+  isLoading.value = true; // Set loading state for submission
 
-  // Handle avatar update/removal based on whether it changed
+  const formData = new FormData();
+  formData.append("user_id", user.value.id); // Send user ID (CRITICAL: Verify on backend)
+  formData.append("name", name.value.trim()); // Trim whitespace
+  formData.append("email", email.value.trim()); // Trim whitespace
+
+  // --- Handle Avatar for Submission ---
+  // Determine if the avatar has changed from the original fetched/local value
+  const avatarChanged = avatarPreview.value !== originalAvatar.value;
+
   if (avatarChanged) {
-    if (avatar.value && avatar.value.startsWith("data:image")) {
-      // User selected a new avatar (send base64)
-      formData.append("avatar", avatar.value);
-    } else if (
-      avatar.value === "/avataaars.svg" &&
-      originalAvatar.value !== "/avataaars.svg"
-    ) {
-      // User changed from a real avatar to the default (request removal)
+    if (avatarPreview.value && avatarPreview.value.startsWith("data:image")) {
+      // User selected a new avatar or kept a valid existing one after interaction
+      // Send the current avatarPreview value (base64)
+      formData.append("avatar", avatarPreview.value);
+    } else if (avatarPreview.value === null && originalAvatar.value !== null) {
+      // User removed the avatar (changed from a real avatar to null)
       formData.append("remove_avatar", "true");
     }
-    // If avatarChanged is true but avatar.value is null/empty and not the default,
-    // it implies an unexpected state, we don't send avatar data or removal flag.
+    // If avatarChanged is true but avatarPreview is null/empty and original was also null,
+    // or avatarPreview is not base64 and not null, it implies an unexpected state,
+    // we don't send avatar data or removal flag.
   }
+  // If avatarChanged is false, we don't append avatar data or remove_avatar flag,
+  // leaving the existing avatar in the database unchanged.
 
   try {
-    // Send the POST request to the profile update API endpoint
-    const response = await fetch(BASEURL + "/profile.php", {
+    // Send the POST request to the backend update profile endpoint
+    const res = await fetch(BASEURL + "/update_profile.php", {
       // Assume BASEURL is defined
       method: "POST",
       body: formData,
       // fetch with FormData automatically sets Content-Type: multipart/form-data
+      // CRITICAL: Backend MUST verify user identity based on session/token, not just user_id from formData.
     });
 
-    // Attempt to parse the response body as JSON
-    // The backend should ideally always return JSON for success and error responses
-    const result = await response.json();
+    // Always try to read the response text for potential error messages from backend
+    const responseText = await res.text();
 
-    // Check if the HTTP response status is NOT OK (e.g., 400, 500)
-    if (!response.ok) {
+    if (!res.ok) {
       // Handle non-2xx status codes
-      const errorText =
-        result.error || response.statusText || "Unknown server error";
-      message.value = { type: "error", text: `Update failed: ${errorText}` };
-      console.error("Profile API Error:", response.status, result); // Log the full error response
-    } else {
-      // Handle 2xx status codes (Success)
-      const successMessage = result.message || "Profile updated successfully!";
-      message.value = { type: "success", text: successMessage };
-      console.log("Profile updated successfully:", result); // Log the full success response
-
-      // Update user data in local storage and the user ref with the updated user object from backend
-      if (result.user) {
-        localStorage.setItem("user", JSON.stringify(result.user));
-        user.value = result.user; // Update the reactive user ref
-        originalAvatar.value = user.value.avatar || "/avataaars.svg"; // Update original avatar reference
-        isEditing.value = false; // Exit editing mode on success
-      } else {
-        console.warn(
-          "Profile updated successfully, but no updated user data returned."
-        );
-        // Decide how to handle this case - maybe stay in edit mode or fetch user data again
-        isEditing.value = false; // Exit editing mode anyway
+      let errorMessage = "Profile update failed.";
+      try {
+        // Attempt to parse JSON if the backend sends JSON errors
+        const errorJson = JSON.parse(responseText);
+        errorMessage = errorJson.error || responseText;
+      } catch (e) {
+        // If not JSON, use the raw text
+        errorMessage = responseText || "Unknown server error.";
       }
+      updateMessage.value = { type: "error", text: errorMessage };
+      console.error("Profile update failed:", res.status, responseText);
+    } else {
+      // Handle 2xx status codes (backend returned JSON success)
+      let successMessage = "Profile updated successfully!";
+      let updatedUserData = null;
+
+      try {
+        // Attempt to parse JSON if backend sends a success message JSON
+        const successJson = JSON.parse(responseText);
+        successMessage = successJson.message || successMessage;
+        updatedUserData = successJson.user; // Assuming backend returns the updated user object
+      } catch (e) {
+        // If not JSON, use the raw text if available, but we won't have updated user data
+        successMessage = responseText || successMessage;
+      }
+
+      updateMessage.value = { type: "success", text: successMessage };
+      console.log("Profile update successful:", responseText);
+
+      // If updated user data is returned, update the user ref and local storage
+      if (updatedUserData) {
+        user.value = updatedUserData; // Update the user ref
+        name.value = user.value.name || ""; // Update form fields from new user data
+        email.value = user.value.email || "";
+        avatarPreview.value = user.value.avatar || null; // Update preview from new avatar
+        originalAvatar.value = user.value.avatar || null; // Update original avatar
+        localStorage.setItem("user", JSON.stringify(user.value)); // Update localStorage
+      }
+      // Clear the file input element's value after a successful update
+      if (avatarInput.value) {
+        avatarInput.value.value = null;
+      }
+      avatarFile.value = null; // Clear the selected file object
     }
-  } catch (error) {
-    // Handle network errors or issues with JSON parsing if response.json() failed
-    message.value = {
+  } catch (err) {
+    // Handle network errors or issues before the fetch completes
+    updateMessage.value = {
       type: "error",
-      text: "An unexpected error occurred during profile update. Please try again.",
+      text: "An unexpected error occurred during profile update.",
     };
-    console.error("Fetch Error during profile update:", error);
+    console.error("Fetch Error during profile update:", err);
   } finally {
-    // Always reset loading state after the fetch attempt is complete
-    isUpdating.value = false;
+    isLoading.value = false; // Reset loading state
   }
 };
 
-// --- Lifecycle Hook ---
-// Load user data from local storage when the component is mounted
-onMounted(() => {
-  const storedUser = localStorage.getItem("user");
-  if (storedUser) {
-    try {
-      user.value = JSON.parse(storedUser);
-      // Check if parsed user object is valid and has an ID
-      if (user.value && typeof user.value.id !== "undefined") {
-        // If user data exists and is valid, populate form fields and avatar preview
-        resetForm(); // Populate and set original avatar
-        isLoading.value = false; // Data loaded, hide initial loading
-      } else {
-        console.error("Invalid user data found in localStorage.");
-        user.value = null; // Treat as no user found
-        isLoading.value = false;
-        localStorage.removeItem("user"); // Clear invalid data
-        // router.push("/signin"); // Redirect to signin if data is invalid
-      }
-    } catch (e) {
-      console.error("Failed to parse user data from localStorage:", e);
-      user.value = null; // Set user to null if parsing fails
-      isLoading.value = false; // Loading finished (with error)
-      localStorage.removeItem("user"); // Clear invalid data
-      // router.push("/signin"); // Redirect to signin on parse error
-    }
-  } else {
-    user.value = null; // Ensure user is null if no data exists
-    isLoading.value = false; // Loading finished (no user found)
-    // Redirect to signin if no user data is found (user not logged in)
-    // router.push("/signin"); // Redirect if no user found
-  }
-});
-
-// Computed property to determine the avatar source based on editing state
-const currentAvatarSrc = computed(() => {
-  // Use the avatar ref (which holds the base64 preview or default)
-  return avatar.value;
-});
-
-// --- Redirect if no user is found after loading ---
-// Watch the user ref and redirect if it becomes null after initial loading
+// Watch the user ref to populate form fields when user data is fetched
+// This is an alternative/addition to populating in onMounted, ensures fields update
+// if user data changes *after* initial mount (e.g., if fetch completes later)
 watch(
   user,
-  (newUser, oldUser) => {
-    // Only redirect if user becomes null *after* the initial load is complete
-    if (oldUser !== undefined && newUser === null && !isLoading.value) {
-      console.log("User became null, redirecting to signin.");
-      router.push("/signin");
+  (newUser) => {
+    if (newUser) {
+      name.value = newUser.name || "";
+      email.value = newUser.email || "";
+      avatarPreview.value = newUser.avatar || null;
+      originalAvatar.value = newUser.avatar || null;
+    } else {
+      // Clear fields if user becomes null
+      name.value = "";
+      email.value = "";
+      avatarPreview.value = null;
+      originalAvatar.value = null;
     }
   },
-  { immediate: false }
-); // Don't run immediately on component mount
+  { immediate: true }
+); // Run immediately on component mount
 </script>
 
 <template>
-  <div class="flex flex-col gap-8 md:max-w-[400px] mx-auto py-8">
+  <div class="container mx-auto px-4 py-8">
     <div
-      v-if="isLoading"
-      class="flex items-center justify-center min-h-[calc(100vh-100px)]"
+      v-if="isFetchingUser"
+      class="flex items-center justify-center min-h-[calc(100vh-200px)]"
     >
       <Progressbar />
     </div>
 
     <div
-      v-else-if="!user"
-      class="flex flex-col gap-4 items-center justify-center min-h-[calc(100vh-100px)] text-gray-600 dark:text-gray-400"
+      v-else-if="userFetchError"
+      class="min-h-[calc(100vh-200px)] flex flex-col gap-4 items-center justify-center text-red-600 dark:text-red-400"
     >
-      <p class="text-xl">You need to be signed in to view your profile.</p>
-      <ButtonFilled @click="router.push('/signin')">Go to Sign In</ButtonFilled>
+      <p class="text-2xl font-bold">Error Loading Profile</p>
+      <p
+        class="rounded p-3 bg-red-100 border border-red-400 dark:bg-red-900 dark:border-red-700 font-mono text-sm"
+      >
+        Error: {{ userFetchError }}
+      </p>
+      <ButtonFilled @click="$router.go(0)">Retry</ButtonFilled>
     </div>
 
-    <div v-else>
+    <div v-else-if="user" class="max-w-md mx-auto">
       <div
-        v-if="message.text"
+        v-if="updateMessage.text"
         :class="{
-          'text-green-600': message.type === 'success',
-          'text-red-600': message.type === 'error',
-          'text-blue-600': message.type === 'info' /* Added info color */,
+          'text-green-600': updateMessage.type === 'success',
+          'text-red-600': updateMessage.type === 'error',
+          'text-blue-600': updateMessage.type === 'info',
           'mb-4 p-3 rounded': true,
-          'bg-green-100 border border-green-400': message.type === 'success',
-          'bg-red-100 border border-red-400': message.type === 'error',
-          'bg-blue-100 border border-blue-400':
-            message.type === 'info' /* Added info background/border */,
+          'bg-green-100 border border-green-400':
+            updateMessage.type === 'success',
+          'bg-red-100 border border-red-400': updateMessage.type === 'error',
+          'bg-blue-100 border border-blue-400': updateMessage.type === 'info',
         }"
       >
-        {{ message.text }}
+        {{ updateMessage.text }}
       </div>
 
-      <div>
-        <h3 class="scroll-m-20 text-2xl font-semibold tracking-tight">
-          Your Profile
-        </h3>
-        <p
-          class="leading-7 [&:not(:first-child)]:mt-2 text-gray-600 dark:text-gray-400"
-        >
-          View and update your profile information.
-        </p>
-      </div>
-
-      <form @submit.prevent="updateProfile" class="flex flex-col gap-8">
+      <form @submit.prevent="updateProfile" class="flex flex-col gap-6">
         <div>
-          <p
-            class="leading-7 [&:not(:first-child)]:mt-6 text-gray-700 dark:text-gray-300"
-          >
-            Profile picture
-          </p>
-          <div class="flex items-center gap-4 mt-2">
+          <h4 v-if="!pending" class="text-2xl md:text-6xl mt-4 mb-16">
+            My profile
+          </h4>
+          <div class="flex items-center gap-4">
             <img
-              :src="currentAvatarSrc"
+              v-if="avatarPreview"
+              :src="avatarPreview"
               alt="Avatar Preview"
-              class="size-32 md:size-40 rounded-full object-cover border border-gray-300 dark:border-gray-600"
+              class="size-40 rounded-full object-cover border border-gray-300 dark:border-gray-600 shadow"
             />
-            <ButtonFilled
-              v-if="isEditing"
-              class="w-fit h-fit"
-              @click="pickAvatar()"
-              type="button"
-              :disabled="isUpdating"
+            <div
+              v-else
+              class="w-24 h-24 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-gray-600 dark:text-gray-300 text-4xl font-semibold"
             >
-              Change picture
-            </ButtonFilled>
+              {{ user.name ? user.name[0].toUpperCase() : "?" }}
+            </div>
+
+            <div class="flex flex-col gap-2">
+              <ButtonFilled
+                @click="pickAvatar()"
+                type="button"
+                :disabled="isLoading"
+              >
+                {{ avatarPreview ? "Change Avatar" : "Upload Avatar" }}
+              </ButtonFilled>
+
+              <ButtonFilled
+                v-if="avatarPreview"
+                @click="removeAvatar()"
+                type="button"
+                class="bg-red-500 hover:bg-red-600 dark:bg-red-700 dark:hover:bg-red-800 text-white dark:text-white text-sm"
+                :disabled="isLoading"
+              >
+                Remove Avatar
+              </ButtonFilled>
+            </div>
+
             <input
               ref="avatarInput"
               type="file"
@@ -393,119 +492,67 @@ watch(
               accept="image/*"
               class="hidden"
             />
-            <ButtonFilled
-              v-if="
-                isEditing && user?.avatar && user.avatar !== '/avataaars.svg'
-              "
-              @click="
-                avatar = '/avataaars.svg';
-                message = {
-                  type: 'info',
-                  text: 'Avatar will be removed on save.',
-                };
-              "
-              type="button"
-              class="bg-red-500 hover:bg-red-600 dark:bg-red-700 dark:hover:bg-red-800 text-white"
-              :disabled="isUpdating"
-            >
-              Remove picture
-            </ButtonFilled>
           </div>
         </div>
 
-        <div class="flex flex-col gap-2">
+        <div>
           <label
             for="name"
-            class="leading-7 [&:not(:first-child)]:mt-6 text-gray-700 dark:text-gray-300"
-            >Your name</label
+            class="block text-lg font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >Name *</label
           >
-          <p v-if="!isEditing" class="textfeild-view">{{ user.name }}</p>
           <input
-            v-else
             type="text"
             id="name"
-            name="name"
             v-model="name"
-            placeholder="Full Name"
+            placeholder="Enter your name"
             required
-            class="textfeild"
-            :disabled="isUpdating"
+            class="textfeild w-full"
+            :disabled="isLoading"
           />
         </div>
 
-        <div class="flex flex-col gap-2">
+        <div>
           <label
             for="email"
-            class="leading-7 [&:not(:first-child)]:mt-6 text-gray-700 dark:text-gray-300"
-            >Your email</label
+            class="block text-lg font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >Email *</label
           >
-          <p v-if="!isEditing" class="textfeild-view">{{ user.email }}</p>
           <input
-            v-else
             type="email"
             id="email"
-            name="email"
-            placeholder="Email"
-            required
             v-model="email"
-            class="textfeild"
-            :disabled="isUpdating"
+            placeholder="Enter your email"
+            required
+            class="textfeild w-full"
+            :disabled="isLoading"
           />
         </div>
 
-        <div class="flex flex-col gap-4 mt-4">
-          <ButtonFilled
-            v-if="!isEditing"
-            @click="toggleEditing()"
-            type="button"
-          >
-            Edit Profile
+        <div>
+          <ButtonFilled type="submit" class="w-full" :disabled="isLoading">
+            <p class="text-center">{{ updateButtonText }}</p>
           </ButtonFilled>
-
-          <template v-else>
-            <ButtonFilled type="submit" :disabled="isUpdating">
-              {{ isUpdating ? "Saving..." : "Save Changes" }}
-            </ButtonFilled>
-            <ButtonFilled
-              @click="toggleEditing()"
-              type="button"
-              class="bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200"
-            >
-              Cancel
-            </ButtonFilled>
-          </template>
         </div>
       </form>
     </div>
+
+    <div
+      v-else
+      class="min-h-[calc(100vh-200px)] flex items-center justify-center text-gray-600 dark:text-gray-400"
+    >
+      <p class="text-xl">User data could not be loaded.</p>
+    </div>
   </div>
 </template>
-
 <style scoped>
-/* Scoped styles for this component */
-
-/* Textfield Styling (consistent with signup) */
+/* Assuming .textfeild is defined elsewhere or in this style block */
 .textfeild {
-  /* Apply base Tailwind classes */
   @apply max-w-full text-sm bg-transparent px-4 py-2 rounded outline-none border;
-  /* Apply custom border colors for light and dark mode */
   @apply border-gray-300 dark:border-gray-600;
-  /* Apply focus ring/border */
   @apply focus:border-blue-500 dark:focus:border-blue-400 focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-400;
-  /* Apply text color */
   @apply text-gray-800 dark:text-gray-200;
 }
 
-/* Styling for the text display in view mode */
-.textfeild-view {
-  @apply max-w-full text-sm px-4 py-2; /* Match padding/size of textfield */
-  @apply text-gray-800 dark:text-gray-200; /* Text color */
-  /* Optional: Add border to match textfield visual style */
-  @apply border border-transparent; /* Transparent border in view mode */
-}
-
-/* Style for the notification area - already done in template */
-/* .message-area { ... } */
-/* .message-area.success { ... } */
-/* .message-area.error { ... } */
-/* .message-area.info { ... } */
+/* Add any other specific scoped styles here */
 </style>

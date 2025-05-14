@@ -159,6 +159,10 @@ onMounted(() => {
           :class="{ hidden: route.path === '/write' }"
         />
 
+        <NuxtLink to="/books">
+          <IconButton icon="ic:outline-inbox" />
+        </NuxtLink>
+
         <IconButton
           :icon="isDarkMode ? 'ic:outline-dark-mode' : 'ic:outline-light-mode'"
           @click="toggleMode"
@@ -213,8 +217,8 @@ onMounted(() => {
                 class="rounded-full flex items-center justify-center size-12 bg-colorSurface-light dark:bg-colorSurface-dark text-colorText-light dark:text-colorText-dark"
               >
                 <img
-                  v-if="book.has_cover"
-                  :src="book.cover_url || '/placeholder-cover.svg'"
+                  v-if="book.cover"
+                  :src="book.cover"
                   alt="Cover"
                   class="size-10 rounded-full object-cover"
                 />

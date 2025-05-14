@@ -9,6 +9,7 @@
         <Icon name="ic:outline-all-inbox" size="14" />
         <p>Toshokan</p>
       </NuxtLink>
+
       <div class="flex items-center gap-2">
         <Icon name="ic:outline-copyright" />
         <small>2025 All rights reserved</small>

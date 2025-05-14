@@ -4,7 +4,7 @@ const props = defineProps(["icon"]);
 
 <template>
   <button
-    class="flex items-center justify-center size-10 rounded-full transition-colors duration-300 hover:bg-colorSurface-light dark:hover:bg-colorSurface-dark"
+    class="flex items-center justify-center size-10 rounded transition-colors text-nowrap duration-300 hover:bg-colorSurface-light dark:hover:bg-colorSurface-dark"
   >
     <Icon :name="props.icon" class="pointer-events-none" />
   </button>

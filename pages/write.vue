@@ -162,7 +162,7 @@ const handleFile = (event) => {
 
   // --- File Validation ---
   const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"]; // Add more types if needed
-  const maxSizeMB = 5; // Maximum allowed file size in MB
+  const maxSizeMB = 1; // Maximum allowed file size in MB
   const maxSizeBytes = maxSizeMB * 1024 * 1024;
 
   if (!allowedTypes.includes(file.type)) {
@@ -461,7 +461,7 @@ watch(
               v-if="cover"
               :src="cover"
               alt="Cover Preview"
-              class="w-32 h-48 object-cover rounded shadow"
+              class="w-full object-cover rounded shadow"
             />
             <div
               v-else
@@ -469,30 +469,31 @@ watch(
             >
               No Cover
             </div>
+            <div class="grid gap-4">
+              <ButtonFilled
+                @click="pickCover()"
+                type="button"
+                :disabled="isLoading"
+              >
+                {{ cover ? "Change Cover" : "Upload Cover" }}
+              </ButtonFilled>
 
-            <ButtonFilled
-              @click="pickCover()"
-              type="button"
-              :disabled="isLoading"
-            >
-              {{ cover ? "Change Cover" : "Upload Cover" }}
-            </ButtonFilled>
-
-            <ButtonFilled
-              v-if="isEditing && cover && cover !== null"
-              @click="
-                cover = null;
-                message = {
-                  type: 'info',
-                  text: 'Cover will be removed on save.',
-                };
-              "
-              type="button"
-              class="bg-red-500 hover:bg-red-600 dark:bg-red-700 dark:hover:bg-red-800 text-white dark:text-white"
-              :disabled="isLoading"
-            >
-              Remove cover
-            </ButtonFilled>
+              <ButtonFilled
+                v-if="isEditing && cover && cover !== null"
+                @click="
+                  cover = null;
+                  message = {
+                    type: 'info',
+                    text: 'Cover will be removed on save.',
+                  };
+                "
+                type="button"
+                class="bg-red-500 hover:bg-red-600 dark:bg-red-700 dark:hover:bg-red-800 text-white dark:text-white"
+                :disabled="isLoading"
+              >
+                Remove cover
+              </ButtonFilled>
+            </div>
 
             <input
               ref="coverInput"

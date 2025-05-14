@@ -276,7 +276,7 @@ const deleteBook = async () => {
         <img
           :src="coverSrc"
           :alt="`Cover for ${book.title || 'Book'}`"
-          class="w-full h-auto max-w-[300px] object-cover rounded-lg shadow-lg"
+          class="w-full h-auto object-cover rounded-lg shadow-lg"
         />
       </div>
       <div
