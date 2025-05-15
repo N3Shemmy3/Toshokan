@@ -138,19 +138,12 @@ onMounted(() => {
       class="flex h-16 items-center justify-between w-full lg:max-w-4xl mx-auto px-4"
     >
       <NuxtLink
-        v-if="route.path === '/'"
         class="flex items-center gap-2 text-lg font-semibold transition-all duration-300 hover:opacity-75"
         to="/"
       >
         <Icon name="ic:outline-all-inbox" size="22" />
-        <h4>Toshokan</h4>
+        <h4 class="hidden md:flex">Toshokan</h4>
       </NuxtLink>
-      <div
-        class="flex items-center gap-2 text-lg font-semibold transition-all duration-300 hover:opacity-75"
-        v-else
-      >
-        <IconButton icon="ic:outline-arrow-back" @click="router.back()" />
-      </div>
 
       <nav class="flex items-center space-x-2">
         <IconButton

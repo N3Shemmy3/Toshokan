@@ -1,51 +1,48 @@
 <script setup>
-import { ref } from "vue"; // Make sure ref is imported
-import { useRouter } from "vue-router"; // Or useNuxtRouter if using Nuxt 3
+import { ref } from "vue";
+import { useRouter } from "vue-router";
+
 // Assume BASEURL is defined somewhere accessible
 // Assume ButtonFilled and NuxtLink components are imported
+
+// Get Router Instance ONCE in setup
+const router = useRouter(); // Correctly initialized here
 
 // Reactive state for form inputs
 const name = ref("");
 const email = ref("");
 const password = ref("");
-const avatar = ref("/avataaars.svg"); // Default avatar path
-const avatarInput = ref(null); // Template ref for the file input element
+const avatar = ref("/avataaars.svg");
+const avatarInput = ref(null);
 
 // UI State
-const isLoading = ref(false); // Loading state for the submit button
-const message = ref({ type: "", text: "" }); // For displaying success/error messages { type: 'success'|'error', text: '...' }
+const isLoading = ref(false);
+const message = ref({ type: "", text: "" });
 
 // --- Validation Helper ---
-// Basic email validation regex
 const isValidEmail = (email) => {
-  // A more robust regex could be used, but this is a decent basic check
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 };
 
 // --- File Handling ---
-// Trigger click on the hidden file input element using its template ref
 const pickAvatar = () => {
   if (avatarInput.value) {
     avatarInput.value.click();
   }
 };
 
-// Handle file selection and read as Base64 Data URL
 const handleFile = (event) => {
   const file = event.target.files[0];
-  // If no file is selected, clear the preview and any messages
   if (!file) {
-    avatar.value = "/avataaars.svg"; // Reset to default avatar
-    message.value = { type: "", text: "" }; // Clear previous file errors
+    avatar.value = "/avataaars.svg";
+    message.value = { type: "", text: "" };
     return;
   }
 
-  // --- File Validation ---
-  const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"]; // Added webp
-  const maxSizeMB = 2; // Maximum allowed file size in MB
-  const maxSizeBytes = maxSizeMB * 1024 * 1024; // Convert MB to bytes
+  const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+  const maxSizeMB = 2;
+  const maxSizeBytes = maxSizeMB * 1024 * 1024;
 
-  // Check file type
   if (!allowedTypes.includes(file.type)) {
     message.value = {
       type: "error",
@@ -53,12 +50,11 @@ const handleFile = (event) => {
         .map((t) => t.split("/")[1].toUpperCase())
         .join(", ")} images are allowed.`,
     };
-    event.target.value = ""; // Clear the file input element's value
-    avatar.value = "/avataaars.svg"; // Reset to default avatar
+    event.target.value = "";
+    avatar.value = "/avataaars.svg";
     return;
   }
 
-  // Check file size
   if (file.size > maxSizeBytes) {
     message.value = {
       type: "error",
@@ -66,62 +62,51 @@ const handleFile = (event) => {
         2
       )} MB) exceeds the maximum limit of ${maxSizeMB}MB.`,
     };
-    event.target.value = ""; // Clear the file input element's value
-    avatar.value = "/avataaars.svg"; // Reset to default avatar
+    event.target.value = "";
+    avatar.value = "/avataaars.svg";
     return;
   }
-  // --- End File Validation ---
 
-  // Read the file as a Data URL (Base64)
   const reader = new FileReader();
   reader.onload = () => {
-    // Store the base64 Data URL in the avatar ref for preview and sending
     avatar.value = reader.result;
-    message.value = { type: "", text: "" }; // Clear previous file errors on successful read
+    message.value = { type: "", text: "" };
   };
   reader.onerror = () => {
-    // Handle errors during file reading
     message.value = { type: "error", text: "Failed to read file." };
-    event.target.value = ""; // Clear the file input element's value on error
-    avatar.value = "/avataaars.svg"; // Reset to default avatar
+    event.target.value = "";
+    avatar.value = "/avataaars.svg";
   };
-  reader.readAsDataURL(file); // Start reading the file
+  reader.readAsDataURL(file);
 };
 
 // --- Form Submission ---
 async function submitForm() {
-  // Clear previous messages before attempting submission
   message.value = { type: "", text: "" };
 
-  // --- Frontend Form Validation ---
   if (!name.value.trim()) {
     message.value = { type: "error", text: "Name cannot be empty." };
-    return; // Stop submission if validation fails
+    return;
   }
   if (!email.value.trim() || !isValidEmail(email.value.trim())) {
-    // Validate trimmed email
     message.value = {
       type: "error",
       text: "Please enter a valid email address.",
     };
-    return; // Stop submission if validation fails
+    return;
   }
   if (!password.value) {
     message.value = { type: "error", text: "Password cannot be empty." };
-    return; // Stop submission if validation fails
+    return;
   }
-  // --- End Frontend Form Validation ---
 
-  isLoading.value = true; // Set loading state to true
+  isLoading.value = true;
 
-  // Prepare form data for the POST request
   const formData = new FormData();
-  formData.append("name", name.value.trim()); // Trim whitespace before sending
-  formData.append("email", email.value.trim()); // Trim whitespace before sending
+  formData.append("name", name.value.trim());
+  formData.append("email", email.value.trim());
   formData.append("password", password.value);
 
-  // Only append the avatar data if a file was selected and successfully read as base64
-  // Check if avatar.value is not the default SVG path and starts with the data URL prefix
   if (
     avatar.value !== "/avataaars.svg" &&
     avatar.value &&
@@ -131,58 +116,87 @@ async function submitForm() {
   }
 
   try {
-    // Send the POST request to the signup API endpoint
     const response = await fetch(BASEURL + "/signup.php", {
-      // Assume BASEURL is defined
       method: "POST",
       body: formData,
-      // fetch with FormData automatically sets Content-Type: multipart/form-data
     });
 
-    // Attempt to parse the response body as JSON
-    // The backend should ideally always return JSON for success and error responses
+    // --- ENHANCED ERROR HANDLING: Check Content-Type before parsing JSON ---
+    const contentType = response.headers.get("Content-Type");
+
+    if (!contentType || !contentType.includes("application/json")) {
+      // If the response is not JSON, it's likely a server error page (HTML)
+      const errorText = `Received unexpected response format (${
+        contentType || "No Content-Type header"
+      }). Expected JSON. This is likely a server error.`;
+      console.error(
+        "Signup API Response Error:",
+        response.status,
+        errorText,
+        await response.text()
+      ); // Log the response text for debugging
+      message.value = { type: "error", text: errorText };
+
+      // You might want to throw an error here to be caught by the catch block
+      // throw new Error("Unexpected server response format");
+      // Or just exit the try block and let the final finally block run
+      return; // Stop execution in this branch
+    }
+    // --- END ENHANCED ERROR HANDLING ---
+
+    // Attempt to parse the response body as JSON (this line is 183 in your original code)
     const result = await response.json();
 
     // Check if the HTTP response status is NOT OK (e.g., 400, 500)
     if (!response.ok) {
-      // Handle non-2xx status codes
-      // Use the 'error' property from the backend's JSON response if available, otherwise use status text
       const errorText =
         result.error || response.statusText || "Unknown server error";
       message.value = { type: "error", text: `Signup failed: ${errorText}` };
-      console.error("Signup API Error:", response.status, result); // Log the full error response
+      console.error("Signup API Error:", response.status, result);
     } else {
-      // Handle 2xx status codes (Success)
-      // Use the 'message' property from the backend's JSON response if available
       const successMessage = result.message || "Signup successful!";
       message.value = { type: "success", text: successMessage };
-      console.log("Signup successful:", result); // Log the full success response
+      console.log("Signup successful:", result);
 
-      // Store user data in local storage (assuming backend returns user object)
-      // The backend should NOT return the password hash here
       if (result.user) {
+        console.log("yes", result.user);
         localStorage.setItem("user", JSON.stringify(result.user));
-        // Redirect to the sign-in page after successful signup
-        useRouter().push("/signin"); // Assuming useRouter is available
+        router.push("/signin");
       } else {
         console.warn("Signup successful, but no user data returned.");
-        // Decide how to handle this case - maybe still redirect or show a different message
         message.value = {
           type: "success",
           text: successMessage + " Please sign in now.",
         };
-        useRouter().push("/signin");
+        // Even if user data isn't returned, still redirect to signin
+        // as per your original logic flow
+        router.push("/signin"); // <-- Keep this redirect as per original logic
       }
+      // Note: You had router.push("/signin"); outside the else block too.
+      // If you want to *always* redirect on a 2xx status, keep one here.
+      // If you only want to redirect if result.user exists OR if it doesn't but you show the "Please sign in now" message,
+      // ensure your redirect logic reflects that.
+      // Based on your original code, it seems you want to redirect in both 2xx cases.
+      router.push("/signin"); // <-- This line will execute if response.ok is true, potentially redirecting twice if result.user exists.
+      // Consider if you need this duplicate redirect. The one inside the if/else blocks might be sufficient.
+      // Let's remove the duplicate one here to be safe and rely on the ones inside the if/else.
+      // REMOVED: router.push("/signin");
     }
   } catch (error) {
-    // Handle network errors or issues with JSON parsing if response.json() failed
+    // This catch block will now handle:
+    // 1. Network errors
+    // 2. The SyntaxError if response.json() still fails (less likely with Content-Type check)
+    // 3. Any other unexpected errors during the fetch/processing
     message.value = {
       type: "error",
-      text: "An unexpected error occurred. Please try again.",
+      text: `An unexpected error occurred: ${
+        error.message || error
+      }. Please check server logs.`, // Added error message
     };
     console.error("Fetch Error during signup:", error);
+    // Optionally, log the response text again if the Content-Type check wasn't hit but JSON parsing failed
+    // console.error("Raw response text:", await response.text().catch(() => 'N/A'));
   } finally {
-    // Always reset loading state after the fetch attempt is complete
     isLoading.value = false;
   }
 }

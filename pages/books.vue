@@ -50,7 +50,12 @@ const openBook = (id) => {
 <template>
   <div class="flex flex-col gap-8">
     <div class="mt-16">
-      <h4 v-if="!pending" class="text-xl md:text-4xl mt-4">Our latest books</h4>
+      <div v-if="!pending" class="flex items-center justify-between">
+        <h4 class="text-xl md:text-4xl mt-4">Our latest books</h4>
+        <NuxtLink to="/write">
+          <ButtonFilled>Add book</ButtonFilled>
+        </NuxtLink>
+      </div>
       <div
         v-else-if="
           !pending &&

@@ -40,6 +40,20 @@ const updateButtonText = computed(() => {
   return isLoading.value ? "Updating..." : "Update Profile";
 });
 
+// --- Logout Function ---
+const handleLogout = () => {
+  // 1. Remove user data from storage
+  // Assuming 'user' in localStorage is your main authentication indicator
+  localStorage.removeItem("user");
+  window.location.reload();
+
+  // 2. Redirect the user to the sign-in page or homepage
+  // Using router.replace to prevent navigating back to the profile page via browser history
+  router.replace("/signin"); // Redirect to your sign-in page
+  // Or router.replace('/'); // Redirect to homepage
+};
+// --- End Logout Function ---
+
 // --- Lifecycle Hook ---
 // Fetch the logged-in user's details when the component is mounted
 onMounted(async () => {
@@ -95,19 +109,28 @@ onMounted(async () => {
         `${BASEURL}/get_user_details.php?id=${userIdToFetch}`
       ); // Assume BASEURL is defined
 
+      // Always try to read the response text first for better error handling
+      const responseText = await res.text();
+
       if (!res.ok) {
-        const errorBody = await res.text();
         let errorMessage = `HTTP error fetching latest profile data: ${res.status}`;
         try {
-          const errorJson = JSON.parse(errorBody);
-          errorMessage = errorJson.error || errorMessage;
+          const errorJson = JSON.parse(responseText);
+          errorMessage = errorJson.error || responseText;
         } catch (e) {
-          errorMessage = errorBody || errorMessage;
+          errorMessage = responseText || errorMessage;
         }
         throw new Error(errorMessage);
       }
 
-      const data = await res.json();
+      let data = null;
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        throw new Error(
+          `Failed to parse JSON response from get_user_details.php: ${responseText}`
+        );
+      }
 
       // Assuming get_user_details.php returns { success: true, user: {...} }
       if (data.success && data.user) {
@@ -125,6 +148,7 @@ onMounted(async () => {
           data.error || "Failed to get latest user data from server.";
         console.error("Fetch User API reported error:", data);
         // If the server says user is not found, clear local data and user ref
+        // This might indicate the auth middleware failed or user was deleted
         if (
           data.error &&
           (data.error.includes("User not found") ||
@@ -132,17 +156,18 @@ onMounted(async () => {
         ) {
           user.value = null;
           localStorage.removeItem("user");
-          // Optionally redirect to login if user is no longer valid on server
-          // router.push("/signin");
+          // Redirect to login if user is no longer valid on server
+          router.replace("/signin"); // Use replace
         }
         // Otherwise, keep the local data (if it existed) and just show the fetch error
       }
     } catch (error) {
-      // Handle network errors or issues during fetch
+      // Handle network errors or issues during fetch or JSON parsing
       userFetchError.value =
         error.message || "Failed to fetch latest user details.";
       console.error("Error fetching user:", error);
       // If fetch fails, keep the local data (if it existed) and just show the fetch error
+      // If there was no local data, the v-else block will handle showing the error message
     } finally {
       isFetchingUser.value = false; // Fetching finished
     }
@@ -152,7 +177,7 @@ onMounted(async () => {
     if (!user.value) {
       // If user is still null (no valid local data either)
       userFetchError.value = "User not logged in. Please log in.";
-      // router.push("/signin"); // Redirect to login
+      router.replace("/signin"); // Redirect to login
     }
   }
 });
@@ -287,7 +312,7 @@ const updateProfile = async () => {
   isLoading.value = true; // Set loading state for submission
 
   const formData = new FormData();
-  formData.append("user_id", user.value.id); // Send user ID (CRITICAL: Verify on backend)
+  formData.append("user_id", user.value.id); // Send user ID (CRITICAL: Verify on backend using session/token)
   formData.append("name", name.value.trim()); // Trim whitespace
   formData.append("email", email.value.trim()); // Trim whitespace
 
@@ -298,10 +323,10 @@ const updateProfile = async () => {
   if (avatarChanged) {
     if (avatarPreview.value && avatarPreview.value.startsWith("data:image")) {
       // User selected a new avatar or kept a valid existing one after interaction
-      // Send the current avatarPreview value (base64)
+      // Send the current avatarPreview value (base64 string)
       formData.append("avatar", avatarPreview.value);
     } else if (avatarPreview.value === null && originalAvatar.value !== null) {
-      // User removed the avatar (changed from a real avatar to null)
+      // User removed the avatar (changed from a real avatar to null preview)
       formData.append("remove_avatar", "true");
     }
     // If avatarChanged is true but avatarPreview is null/empty and original was also null,
@@ -314,25 +339,47 @@ const updateProfile = async () => {
   try {
     // Send the POST request to the backend update profile endpoint
     const res = await fetch(BASEURL + "/update_profile.php", {
-      // Assume BASEURL is defined
       method: "POST",
       body: formData,
       // fetch with FormData automatically sets Content-Type: multipart/form-data
       // CRITICAL: Backend MUST verify user identity based on session/token, not just user_id from formData.
     });
 
-    // Always try to read the response text for potential error messages from backend
+    // Always try to read the response text first for potential error messages from backend
     const responseText = await res.text();
+
+    // --- Check Content-Type header for robustness (Optional but good) ---
+    const contentType = res.headers.get("Content-Type");
+    if (!contentType || !contentType.includes("application/json")) {
+      console.error(
+        "Profile Update API Response Error: Received unexpected Content-Type.",
+        {
+          status: res.status,
+          contentType: contentType,
+          responseText: responseText,
+        }
+      );
+      // Throwing an error here will jump to the catch block below
+      throw new Error(
+        `Received unexpected response format (${
+          contentType || "No Content-Type"
+        }). Expected JSON. Server response: "${responseText.substring(
+          0,
+          100
+        )}..."`
+      );
+    }
+    // --- End Content-Type Check ---
 
     if (!res.ok) {
       // Handle non-2xx status codes
       let errorMessage = "Profile update failed.";
       try {
-        // Attempt to parse JSON if the backend sends JSON errors
+        // Attempt to parse JSON from the responseText if the backend sends JSON errors
         const errorJson = JSON.parse(responseText);
         errorMessage = errorJson.error || responseText;
       } catch (e) {
-        // If not JSON, use the raw text
+        // If not valid JSON (and Content-Type check didn't catch it), use the raw text
         errorMessage = responseText || "Unknown server error.";
       }
       updateMessage.value = { type: "error", text: errorMessage };
@@ -348,8 +395,14 @@ const updateProfile = async () => {
         successMessage = successJson.message || successMessage;
         updatedUserData = successJson.user; // Assuming backend returns the updated user object
       } catch (e) {
-        // If not JSON, use the raw text if available, but we won't have updated user data
-        successMessage = responseText || successMessage;
+        // If not valid JSON, use the raw text as message, but log the parsing error
+        console.error(
+          "Failed to parse success JSON response from update_profile.php:",
+          e,
+          responseText
+        );
+        successMessage = responseText || successMessage; // Fallback to raw text
+        // updatedUserData remains null
       }
 
       updateMessage.value = { type: "success", text: successMessage };
@@ -358,23 +411,26 @@ const updateProfile = async () => {
       // If updated user data is returned, update the user ref and local storage
       if (updatedUserData) {
         user.value = updatedUserData; // Update the user ref
-        name.value = user.value.name || ""; // Update form fields from new user data
-        email.value = user.value.email || "";
-        avatarPreview.value = user.value.avatar || null; // Update preview from new avatar
-        originalAvatar.value = user.value.avatar || null; // Update original avatar
+        // The watcher for `user` ref will automatically update the form fields
         localStorage.setItem("user", JSON.stringify(user.value)); // Update localStorage
       }
-      // Clear the file input element's value after a successful update
+      // Clear the file input element's value and selected file object after a successful update
       if (avatarInput.value) {
         avatarInput.value.value = null;
       }
-      avatarFile.value = null; // Clear the selected file object
+      avatarFile.value = null;
+      // Note: avatarPreview and originalAvatar are updated by the user watcher if updatedUserData is present.
+      // If updatedUserData is NOT present (meaning backend didn't return user object on success),
+      // the preview/original states will remain as they were before the update attempt.
     }
   } catch (err) {
-    // Handle network errors or issues before the fetch completes
+    // This catch block handles network errors, issues reading response,
+    // JSON parsing errors, and the custom error thrown by the Content-Type check.
     updateMessage.value = {
       type: "error",
-      text: "An unexpected error occurred during profile update.",
+      text: `An unexpected error occurred during profile update: ${
+        err.message || err
+      }`,
     };
     console.error("Fetch Error during profile update:", err);
   } finally {
@@ -382,9 +438,7 @@ const updateProfile = async () => {
   }
 };
 
-// Watch the user ref to populate form fields when user data is fetched
-// This is an alternative/addition to populating in onMounted, ensures fields update
-// if user data changes *after* initial mount (e.g., if fetch completes later)
+// Watch the user ref to populate form fields when user data is fetched or updated
 watch(
   user,
   (newUser) => {
@@ -392,17 +446,30 @@ watch(
       name.value = newUser.name || "";
       email.value = newUser.email || "";
       avatarPreview.value = newUser.avatar || null;
-      originalAvatar.value = newUser.avatar || null;
+      originalAvatar.value = newUser.avatar || null; // Keep original updated
+      // Clear update messages related to avatar removal info if user data is loaded/updated
+      if (
+        updateMessage.value.type === "info" &&
+        updateMessage.value.text.includes("Avatar will be removed")
+      ) {
+        updateMessage.value = { type: "", text: "" };
+      }
     } else {
-      // Clear fields if user becomes null
+      // Clear fields if user becomes null (e.g., after logout or failed auth check)
       name.value = "";
       email.value = "";
       avatarPreview.value = null;
       originalAvatar.value = null;
+      // Clear any messages if user is null
+      updateMessage.value = { type: "", text: "" };
+    }
+    // Clear user fetch error if user data is successfully loaded/updated
+    if (newUser && userFetchError.value) {
+      userFetchError.value = null;
     }
   },
-  { immediate: true }
-); // Run immediately on component mount
+  { immediate: true } // Run immediately on component mount
+);
 </script>
 
 <template>
@@ -424,10 +491,28 @@ watch(
       >
         Error: {{ userFetchError }}
       </p>
-      <ButtonFilled @click="$router.go(0)">Retry</ButtonFilled>
+      <ButtonFilled @click="router.go(0)">Retry</ButtonFilled>
+      <ButtonFilled
+        @click="handleLogout()"
+        type="button"
+        class="mt-4 bg-red-500 hover:bg-red-600 dark:bg-red-700 dark:hover:bg-red-800 text-white dark:text-white text-sm"
+      >
+        Logout
+      </ButtonFilled>
     </div>
 
     <div v-else-if="user" class="max-w-md mx-auto">
+      <div class="flex items-center justify-between mb-6">
+        <h4 class="text-2xl md:text-3xl font-semibold">My Profile</h4>
+        <ButtonFilled
+          @click="handleLogout()"
+          type="button"
+          class="bg-red-500 hover:bg-red-600 dark:bg-red-700 dark:hover:bg-red-800 text-white dark:text-white text-sm"
+        >
+          Logout
+        </ButtonFilled>
+      </div>
+
       <div
         v-if="updateMessage.text"
         :class="{
@@ -446,10 +531,7 @@ watch(
 
       <form @submit.prevent="updateProfile" class="flex flex-col gap-6">
         <div>
-          <h4 v-if="!pending" class="text-2xl md:text-6xl mt-4 mb-16">
-            My profile
-          </h4>
-          <div class="flex items-center gap-4">
+          <div class="flex flex-col sm:flex-row sm:items-center gap-4">
             <img
               v-if="avatarPreview"
               :src="avatarPreview"
@@ -458,7 +540,7 @@ watch(
             />
             <div
               v-else
-              class="w-24 h-24 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-gray-600 dark:text-gray-300 text-4xl font-semibold"
+              class="size-40 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-gray-600 dark:text-gray-300 text-4xl font-semibold"
             >
               {{ user.name ? user.name[0].toUpperCase() : "?" }}
             </div>
@@ -473,7 +555,7 @@ watch(
               </ButtonFilled>
 
               <ButtonFilled
-                v-if="avatarPreview"
+                v-if="avatarPreview !== null"
                 @click="removeAvatar()"
                 type="button"
                 class="bg-red-500 hover:bg-red-600 dark:bg-red-700 dark:hover:bg-red-800 text-white dark:text-white text-sm"
@@ -541,7 +623,9 @@ watch(
       v-else
       class="min-h-[calc(100vh-200px)] flex items-center justify-center text-gray-600 dark:text-gray-400"
     >
-      <p class="text-xl">User data could not be loaded.</p>
+      <p class="text-xl">
+        User data could not be loaded or user not logged in.
+      </p>
     </div>
   </div>
 </template>

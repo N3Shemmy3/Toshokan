@@ -28,7 +28,6 @@ async function submitLogin() {
         })
       );
 
-      alert("Login successful!");
       // Redirect to a dashboard or another page
       window.location.href = "/books"; // Example redirect
     } else {
