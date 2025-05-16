@@ -13,7 +13,7 @@
       </small>
       <h1 class="text-4xl md:text-7xl font-bold mt-4 leading-8">
         Share your books
-        <span class="italic font-cursive">freely</span> with the wolrd
+        <span class="italic font-cursive">freely</span> with the world
       </h1>
       <p class="text-base mt-2">
         Knowledge should not be locked behind paywalls, everyone derserves an
