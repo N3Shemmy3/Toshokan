@@ -44,7 +44,7 @@ async function submitLogin() {
   <div
     class="flex flex-col gap-8 md:max-w-[400px] mx-auto rounded-md md:border md:p-4"
   >
-    <div class="flex flex-col gap-1 text-center">
+    <div class="text-center">
       <h3 class="md:mt-8 scroll-m-20 text-2xl font-semibold tracking-tight">
         Sign in to your account
       </h3>
