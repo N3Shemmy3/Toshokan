@@ -42,16 +42,16 @@ async function submitLogin() {
 
 <template>
   <div
-    class="flex flex-col gap-8 md:max-w-[400px] mx-auto rounded-md md:border md:p-4"
+    class="flex flex-col gap-4 md:max-w-[400px] mx-auto rounded-md md:border md:p-4"
   >
-    <div class="text-center">
-      <h3 class="md:mt-8 scroll-m-20 text-2xl font-semibold tracking-tight">
-        Sign in to your account
-      </h3>
-      <p class="leading-7 text-opacity-65">
-        Welcome back! Please enter your details.
-      </p>
-    </div>
+    <h3
+      class="text-center md:mt-8 scroll-m-20 text-2xl font-semibold tracking-tight"
+    >
+      Sign in to your account
+    </h3>
+    <p class="leading-7 text-center text-opacity-65">
+      Welcome back! Please enter your details.
+    </p>
 
     <form @submit.prevent="submitLogin" class="flex flex-col gap-2 *:w-full">
       <div>
