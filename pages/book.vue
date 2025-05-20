@@ -197,7 +197,7 @@ const deleteBook = async () => {
       >
         User Error: {{ userFetchError }}
       </p>
-      <ButtonFilled @click="onMounted">Retry Loading Page</ButtonFilled>
+      <ButtonFilled @click="$router.push('/books')">go back</ButtonFilled>
     </div>
 
     <div v-else-if="book" class="max-w-3xl mx-auto flex flex-col gap-8">
