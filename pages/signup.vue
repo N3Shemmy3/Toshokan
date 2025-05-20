@@ -2,11 +2,7 @@
 import { ref } from "vue";
 import { useRouter } from "vue-router";
 
-// Assume BASEURL is defined somewhere accessible
-// Assume ButtonFilled and NuxtLink components are imported
-
-// Get Router Instance ONCE in setup
-const router = useRouter(); // Correctly initialized here
+const router = useRouter();
 
 // Reactive state for form inputs
 const name = ref("");
@@ -170,17 +166,9 @@ async function submitForm() {
         };
         // Even if user data isn't returned, still redirect to signin
         // as per your original logic flow
-        router.push("/signin"); // <-- Keep this redirect as per original logic
+        router.push("/signin");
       }
-      // Note: You had router.push("/signin"); outside the else block too.
-      // If you want to *always* redirect on a 2xx status, keep one here.
-      // If you only want to redirect if result.user exists OR if it doesn't but you show the "Please sign in now" message,
-      // ensure your redirect logic reflects that.
-      // Based on your original code, it seems you want to redirect in both 2xx cases.
-      router.push("/signin"); // <-- This line will execute if response.ok is true, potentially redirecting twice if result.user exists.
-      // Consider if you need this duplicate redirect. The one inside the if/else blocks might be sufficient.
-      // Let's remove the duplicate one here to be safe and rely on the ones inside the if/else.
-      // REMOVED: router.push("/signin");
+      router.push("/signin");
     }
   } catch (error) {
     // This catch block will now handle:
@@ -312,7 +300,9 @@ async function submitForm() {
         </ButtonFilled>
         <p class="text-center text-gray-600 dark:text-gray-400">or</p>
         <NuxtLink to="/signin">
-          <ButtonFilled :disabled="isLoading"> Sign in </ButtonFilled>
+          <ButtonFilled :disabled="isLoading" class="w-full">
+            Sign in
+          </ButtonFilled>
         </NuxtLink>
       </div>
     </form>

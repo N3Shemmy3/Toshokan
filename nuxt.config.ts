@@ -21,4 +21,12 @@ export default defineNuxtConfig({
       mode: "out-in",
     },
   },
+  vite: {
+    optimizeDeps: {
+      include: ["lodash"], // Add lodash here
+    },
+    ssr: {
+      noExternal: ["lodash"],
+    },
+  },
 });
