@@ -157,7 +157,7 @@ const deleteBook = async () => {
         successMessage = responseText || successMessage;
       }
       deleteMessage.value = { type: "success", text: successMessage };
-      router.push("/");
+      router.push("/books");
     }
   } catch (err) {
     deleteMessage.value = {

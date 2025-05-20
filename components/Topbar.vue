@@ -95,8 +95,8 @@ watch(query, (newQuery) => {
 
 // Function to open a specific book page
 const openBook = (id) => {
-  isDialogOpen.value = false; // Close the search dialog
-  router.push("/book?id=" + id); // Navigate to the book detail page using the router instance
+  isDialogOpen.value = false;
+  window.location.href = encodeURI("/book?id=" + id);
 };
 
 // State for user avatar and user object
@@ -107,7 +107,7 @@ const user = ref(null); // Stores the user object from local storage
 // Load user data from local storage when the component is mounted
 onMounted(() => {
   const storedUser = localStorage.getItem("user");
-  console.log("Stored User:", storedUser); // Debug log to check the value
+  // console.log("Stored User:", storedUser); // Debug log to check the value
   if (storedUser) {
     try {
       user.value = JSON.parse(storedUser);

@@ -155,7 +155,7 @@ async function submitForm() {
       console.log("Signup successful:", result);
 
       if (result.user) {
-        console.log("yes", result.user);
+        // console.log("yes", result.user);
         localStorage.setItem("user", JSON.stringify(result.user));
         router.push("/signin");
       } else {

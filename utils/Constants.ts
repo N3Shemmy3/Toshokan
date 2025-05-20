@@ -1,1 +1,1 @@
-export const BASEURL = "https://shemmynyirenda.icu/api";
+export const BASEURL = "http://localhost/Toshokan";

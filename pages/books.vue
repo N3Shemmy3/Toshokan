@@ -43,7 +43,7 @@ const displayError = computed(() => {
 });
 // Function to open a specific book page
 const openBook = (id) => {
-  useRouter().router.push("/book?id=" + id);
+  useRouter().push("/book?id=" + id);
   // Navigate to the book detail page using the router instance
 };
 </script>
