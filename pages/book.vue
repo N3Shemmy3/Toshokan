@@ -21,11 +21,11 @@ const route = useRoute();
 const router = useRouter();
 
 onMounted(async () => {
-  const bookId = route.params.id;
+  const bookId = route.query.id; // Changed from route.params.id
   user.value = JSON.parse(localStorage.getItem("user"));
 
   if (!bookId) {
-    bookFetchError.value = "Book ID is missing from the route.";
+    bookFetchError.value = "Book ID is missing from the query string.";
     isLoadingBook.value = false;
     return;
   }

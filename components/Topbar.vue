@@ -96,7 +96,7 @@ watch(query, (newQuery) => {
 // Function to open a specific book page
 const openBook = (id) => {
   isDialogOpen.value = false; // Close the search dialog
-  router.push(`/book/${id}`); // Navigate to the book detail page using the router instance
+  router.push("/book?id=" + id); // Navigate to the book detail page using the router instance
 };
 
 // State for user avatar and user object

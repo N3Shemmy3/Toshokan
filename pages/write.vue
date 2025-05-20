@@ -367,10 +367,10 @@ const submitBook = async () => {
       // Redirect after successful publish or update
       // Redirect to the book detail page if bookId is available
       if (bookId) {
-        router.push(`/book/${bookId}`);
+        router.push(`/book?id=${bookId}`);
       } else if (isEditing.value && bookIdToEdit.value) {
         // If updated, redirect back to the book detail page using the original ID
-        router.push(`/book/${bookIdToEdit.value}`);
+        router.push(`/book?id=${bookIdToEdit.value}`);
       } else {
         // Fallback redirect (e.g., to homepage or author's books list)
         router.push("/");
